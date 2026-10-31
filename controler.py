@@ -4,13 +4,10 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class LCUcontroler:
-    def __init__(self, info):
+    def __init__(self):
 
-        self.PORT, self.TOKEN = info
-
-        self.URL = f"https://127.0.0.1:{self.PORT}"
-        self.AUTH = ("riot", self.TOKEN)
-
+        
+        
         self.HANDLERS = {
         "/lol-gameflow/v1/gameflow-phase": self.gameFlowPhase,
         "/lol-gameflow/v1/session": self.gameFlowSesion,
@@ -18,6 +15,8 @@ class LCUcontroler:
         "/lol-matchmaking/v1/ready-check": self.matchmakingReady,
         "/lol-champ-select/v1/session": self.champSelect,
         }
+
+    
 
     LOBYIDS = {
         "CASUAL":480,
@@ -29,6 +28,17 @@ class LCUcontroler:
         "ARAMCAOS":24000,
         "ARENA":1750        
     }
+
+    def getCredentials(self, port, token):
+        self.PORT = port
+        self.TOKEN =  token
+        self.URL = f"https://127.0.0.1:{self.PORT}"
+        self.AUTH = ("riot", self.TOKEN)
+
+        print(self.TOKEN, self.PORT)
+
+    def clearCredentials(self):
+        self.PORT, self.TOKEN, self.AUTH, self.URL = (None*4)
 
     def tester(self, payload):
         with open("info.txt", "a", encoding="utf-8") as f:
@@ -43,7 +53,17 @@ class LCUcontroler:
         pass
 
     def champSelect(self, payload):
-        pass
+        localPlayerId = payload["data"].get("localPlayerCellId", None)
+        if not localPlayerId:
+            return
+        acciones = payload["data"]["actions"]
+        for l in acciones:
+            for accion in l:
+                if accion["actorCellId"] == localPlayerId and accion["isInProgress"] == True:
+                    if accion["type"] == "pick":
+                        self.hoverChamp(accion["id"], 53) #TODO: metodo para conseguir el hover
+                    if accion["type"] == "ban":
+                        self.hoverChamp(accion["id"], 22) #TODO: lo mismo
 
     def loby(self, payload):
         summoner_ids = [member["summonerId"] for member in payload["data"].get("members", [])]
@@ -59,28 +79,42 @@ class LCUcontroler:
             remainingPenalty = payload ["data"]["lowPriorityData"]["penaltyTimeRemaining"]
             print(f"penalizacion de {totalPenalty}s, tiempo restante:{remainingPenalty}s") # interfaz luego
 
-    def endOfGame(self, payload):
-        pass
-
     def acceptMatch(self):
         requests.post(f'{self.URL}/lol-matchmaking/v1/ready-check/accept', auth=self.AUTH, verify=False)
 
     def crearSala(self, tipo):
         requests.post(f"{self.URL}/lol-lobby/v2/lobby", json={"queueId":tipo}, auth=self.AUTH, verify=False)
 
-    def buscarPartida(self):
+    def startQ(self):
         requests.post(f'{self.URL}/lol-lobby/v2/lobby/matchmaking/search', auth=self.AUTH, verify=False)
 
-    def cancelarCola(self):
+    def cancelQ(self):
         requests.delete(f'{self.URL}/lol-lobby/v2/lobby/matchmaking/search', auth=self.AUTH, verify=False)
 
-    def expulsarDeSala(self, summonerId):
-        requests.post(f"{self.URL}/lol-lobby/v1/lobby/members/{summonerId}/kick", auth=self.AUTH, verify=False)
+    def kick(self, summonerId):
+        requests.post(f"{self.URL}/lol-lobby/v2/lobby/members/{summonerId}/kick", auth=self.AUTH, verify=False)
 
-    def acenderLider(self, summonerId):
+    def promote(self, summonerId):
         requests.post(f"{self.URL}/lol-lobby/v2/lobby/members/{summonerId}/promote", auth=self.AUTH, verify=False)
+    
+    def hoverChamp(self, actionId, champId):
+        r = requests.patch(f"{self.URL}/lol-champ-select/v1/session/actions/{actionId}", json={"championId":champId}, auth=self.AUTH, verify=False)
+    
+    def lockChamp(self, actionId, champId):
+        r = requests.post(f"{self.URL}/lol-champ-select/v1/session/actions/{actionId}", json={"championId":champId}, auth=self.AUTH, verify=False)
 
 
-xd = LCUcontroler(("61675", "MDF7IY_BMuX-tCje95XovA"))
-xd.crearSala(xd.LOBYIDS["NORMALS"])
+#testing
+xd = LCUcontroler()
+
+#xd.getCredentials("61277","vG7bCYf9XBUZ7TUrqvdFjg")
+
+#xd.crearSala(xd.LOBYIDS["NORMALS"])
+#n = input()
+#xd.kick(n)
+#m = input()
+#xd.promote(m)
+#print(input())
+#xd.hoverChamp()
+#xd.pickChamp()
 

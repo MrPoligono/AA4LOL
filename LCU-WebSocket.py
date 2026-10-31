@@ -1,7 +1,13 @@
-import psutil, requests, websocket, json, base64, ssl, threading 
+import psutil, websocket, json, base64, ssl, threading 
 from controler import LCUcontroler
+from api import app
 import traceback
+
 stop = threading.Event()
+
+lcu = LCUcontroler()
+app.config["LCU"] = lcu
+
 
 def getLCU():
     for proces in psutil.process_iter(['name']):
@@ -15,11 +21,10 @@ def getLCU():
     return None
 
 def waitLCU():
-    global controler
     while not stop.is_set():
         info = getLCU()
         if info:
-            controler = LCUcontroler(info)
+            lcu.getCredentials(*info)
             return info
         stop.wait(1.0)
 
@@ -28,12 +33,11 @@ def onOpen(ws):
     ws.send(json.dumps([5, "OnJsonApiEvent"]))
 
 def onMessage(ws, message):
-    global controler
     if not message:
         return
     try:
         _, _, payload = json.loads(message)
-        handlerMetod = controler.HANDLERS.get(payload["uri"])
+        handlerMetod = lcu.HANDLERS.get(payload["uri"])
         if handlerMetod:
             handlerMetod(payload)
     except Exception as e:
@@ -46,6 +50,7 @@ def onError(ws, err):
     print(err)
 
 def onClose(ws, statusCode, reason):
+    #lcu.clearCredentials()
     print("Conexion terminada")
 
 
